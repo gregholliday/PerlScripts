@@ -204,11 +204,10 @@ my $dbh = DBI->connect("dbi:Oracle:$dbname",$dbuser,$dbpwd)
 
 my $sql = "ALTER SYSTEM SWITCH LOGFILE";
 
-#$dbh->do($sql) or err("DR-Recovery:MoveFiles","Database Error - Error switching log files:  $DBI::errstr\n",2);
-
-$dbh->disconnect();  #disconnect from the database
+$dbh->do($sql) or err("DR-Recovery:MoveFiles","Database Error - Error switching log files:  $DBI::errstr\n",2);
 print "Switching DB log. Waiting...\n";
 sleep(45); #wait for 45 seconds
+
 
 ############################################################################################
 # get current date after SWITCH for processing file copy/ftp
@@ -247,6 +246,31 @@ $ini->save();
 # END-get current date
 ############################################################################################
 
+############################################################################################
+# Get list of files to transfer from DB
+############################################################################################
+print "Getting list of files from database\n";
+my $lastrun = "$lrday-$lrmonth-$lryear $lrhour:$lrmin)";
+my $currentrun = "$cday-$cmonth-$cyear $chour:$cmin";
+
+$sql = "select name, to_char(completion_time, 'DD-MON-YYYY HH24:MI') ".
+		"from v\$archived_log ".
+		"where UPPER(name) like 'U%' ".
+		"and completion_time between to_date('$lastrun', 'DD-MON-YYYY HH24:MI') ".
+		"and TO_DATE('$currentrun' ,'DD-MON-YYYY HH24:MI')";
+
+my $sth = $dbh->prepare($sql)
+	or err("DR-Recovery:MoveFiles","Database Error - Can not get files from DB: $DBI::errstr\n",2); ##prepare the SQL
+$sth->execute(); ##execute the SQL
+
+my $array_ref = $sth->fetchall_arrayref(); ##fetch rows into array
+my @files;
+
+foreach my $row(@$array_ref){
+	my ($filename,$filedate) = @$row;
+	push(@files, $filename);
+}
+$dbh->disconnect();  #disconnect from the database
 
 ############################################################################################
 ## Move log files from original location to 
@@ -258,45 +282,56 @@ $filecnt = 0; #make sure the file count is reset
 
 print "Moving files to staging area\n";
 print LAST "Moving files to staginf area\n";
+my ($base,$ext,$dir);
 
-opendir (ORG, $original) or err("DR-Recovery:MoveFiles","Could not open log folder $original\n",2);
-my @files = readdir(ORG);
-closedir(ORG);
-my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks);
-my ($mday,$wday,$yday,$isdst);
-
-foreach $file (@files){
-   next if $file =~ /^\.\.?$/;  # skip . and ..
-   $newfile = $staging."\\".$file;  #new location
-   $orgfile = $original."\\".$file; #original location
-   ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($orgfile) ;
-   $st = localtime($mtime) ;
-
-   $day = $st->[3];
-   $month = $st->[4] + 1;
-   $year = $st->[5] + 1900;
-   $sec = $st->[0];
-   if ($sec < 10){
-   	$sec = '0'.$sec;
-   }
-   $min = $st->[1];
-   if ($min < 10){
-   	$min = '0'.$min;
-   }
-   $hour = $st->[2];
-   @fts = ($year,$month,$day,$hour,$min,$sec);
-   $temp = Delta_DHMS(@fts,@cts); #compare the file modified time to the current time
-   $temp2 = Delta_DHMS(@fts,@lastrun);
- 
-	if ($temp > 0 && $temp2 < 0){
-		copy($orgfile,$newfile)
-			or err("DR-Recovery:MoveFiles","Error trying to copy file from $orgfile to $newfile\n",1);
-		print LAST "Copied $orgfile TO $newfile\n";
-		$filecnt++; #increment the file count after copy
-	}else{
-		err("DR-Recovery:MoveFiles","Did not move file $orgfile ($month/$day/$year $hour:$min:$sec). Current: $chour:$cmin:$csec. Last: $lrhour:$lrmin:$lrsec.($temp,$temp2)\n",1);
-	}
+foreach $file(@files){
+	($base,$ext,$dir) = fileparse($file);
+	$newfile = $staging."\\".$base.$ext;
+	print "Moving $file to $newfile\n";
+	copy($file,$newfile)
+		 or err("DR-Recovery:MoveFiles","Error trying to copy file from $file to $newfile\n",1);
+	print LAST "Copied $orgfile TO $newfile\n";
+	$filecnt++; #increment the file count after copy	
 }
+
+#opendir (ORG, $original) or err("DR-Recovery:MoveFiles","Could not open log folder $original\n",2);
+#my @files = readdir(ORG);
+#closedir(ORG);
+#my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks);
+#my ($mday,$wday,$yday,$isdst);
+
+# foreach $file (@files){
+   # next if $file =~ /^\.\.?$/;  # skip . and ..
+   # $newfile = $staging."\\".$file;  #new location
+   # $orgfile = $original."\\".$file; #original location
+   # ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($orgfile) ;
+   # $st = localtime($mtime) ;
+
+   # $day = $st->[3];
+   # $month = $st->[4] + 1;
+   # $year = $st->[5] + 1900;
+   # $sec = $st->[0];
+   # if ($sec < 10){
+   	# $sec = '0'.$sec;
+   # }
+   # $min = $st->[1];
+   # if ($min < 10){
+   	# $min = '0'.$min;
+   # }
+   # $hour = $st->[2];
+   # @fts = ($year,$month,$day,$hour,$min,$sec);
+   # $temp = Delta_DHMS(@fts,@cts); #compare the file modified time to the current time
+   # $temp2 = Delta_DHMS(@fts,@lastrun);
+ 
+	# if ($temp > 0 && $temp2 < 0){
+		# copy($orgfile,$newfile)
+			# or err("DR-Recovery:MoveFiles","Error trying to copy file from $orgfile to $newfile\n",1);
+		# print LAST "Copied $orgfile TO $newfile\n";
+		# $filecnt++; #increment the file count after copy
+	# }else{
+		# err("DR-Recovery:MoveFiles","Did not move file $orgfile ($month/$day/$year $hour:$min:$sec). Current: $chour:$cmin:$csec. Last: $lrhour:$lrmin:$lrsec.($temp,$temp2)\n",1);
+	# }
+# }
 
 ############################################################################################
 ##zip and ftp files to DR-PROD
