@@ -293,7 +293,9 @@ foreach $file (@files){
 			or err("DR-Recovery:MoveFiles","Error trying to copy file from $orgfile to $newfile\n",1);
 		print LAST "Copied $orgfile TO $newfile\n";
 		$filecnt++; #increment the file count after copy
-	}   
+	}else{
+		err("DR-Recovery:MoveFiles","Did not move file $orgfile ($month/$day/$year $hour:$min:$sec). Current: $chour:$cmin:$csec. Last: $lrhour:$lrmin:$lrsec.($temp,$temp2)\n",1);
+	}
 }
 
 ############################################################################################
