@@ -295,45 +295,6 @@ foreach $file(@files){
 	$filecnt++; #increment the file count after copy	
 }
 
-#opendir (ORG, $original) or err("DR-Recovery:MoveFiles","Could not open log folder $original\n",2);
-#my @files = readdir(ORG);
-#closedir(ORG);
-#my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks);
-#my ($mday,$wday,$yday,$isdst);
-
-# foreach $file (@files){
-  # next if $file =~ /^\.\.?$/;  # skip . and ..
-  # $newfile = $staging."\\".$file;  #new location
-  # $orgfile = $original."\\".$file; #original location
-  # ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($orgfile) ;
-  # $st = localtime($mtime) ;
-
-  # $day = $st->[3];
-  # $month = $st->[4] + 1;
-  # $year = $st->[5] + 1900;
-  # $sec = $st->[0];
-  # if ($sec < 10){
-  	# $sec = '0'.$sec;
-  # }
-  # $min = $st->[1];
-  # if ($min < 10){
-  	# $min = '0'.$min;
-  # }
-  # $hour = $st->[2];
-  # @fts = ($year,$month,$day,$hour,$min,$sec);
-  # $temp = Delta_DHMS(@fts,@cts); #compare the file modified time to the current time
-  # $temp2 = Delta_DHMS(@fts,@lastrun);
-
-	# if ($temp > 0 && $temp2 < 0){
-		# copy($orgfile,$newfile)
-			# or err("DR-Recovery:MoveFiles","Error trying to copy file from $orgfile to $newfile\n",1);
-		# print LAST "Copied $orgfile TO $newfile\n";
-		# $filecnt++; #increment the file count after copy
-	# }else{
-		# err("DR-Recovery:MoveFiles","Did not move file $orgfile ($month/$day/$year $hour:$min:$sec). Current: $chour:$cmin:$csec. Last: $lrhour:$lrmin:$lrsec.($temp,$temp2)\n",1);
-	# }
-# }
-
 ############################################################################################
 ##zip and ftp files to DR-PROD
 ############################################################################################
@@ -420,35 +381,44 @@ if($filecnt != $zipcnt){
 ############################################################################################
 # get current date for end date
 ############################################################################################
+my($dsec,$dmin,$dhour,$dday,$dmonth,$dyear);
 $local = (localtime);
-$csec = $local->[0];
-if ($csec < 10){
-	$csec = '0'.$csec;
+$dsec = $local->[0];
+if ($dsec < 10){
+	$dsec = '0'.$dsec;
 }
-$cmin = $local->[1];
-if ($cmin < 10){
-	$cmin = '0'.$cmin;
+$dmin = $local->[1];
+if ($dmin < 10){
+	$dmin = '0'.$dmin;
 }
-$chour = $local->[2];
-if ($chour < 10){
-	$chour = '0'.$chour;
+$dhour = $local->[2];
+if ($dhour < 10){
+	$dhour = '0'.$dhour;
 }
-$cday = $local->[3];
-$cmonth = $local->[4] + 1;
-$cyear = $local->[5] + 1900;
-if ($cmonth < 10){
-	$cmonth = '0'.$cmonth;
+$dday = $local->[3];
+$dmonth = $local->[4] + 1;
+$dyear = $local->[5] + 1900;
+if ($dmonth < 10){
+	$dmonth = '0'.$dmonth;
 }
-if ($cday < 10){
-	$cday = '0'.$cday;
+if ($dday < 10){
+	$dday = '0'.$dday;
 }
 
 if ($errfnd == 1) {
-	print RUN "DR-Recovery completed with ERRORS on $cmonth/$cday/$cyear at $chour:$cmin:$csec\n";	
+	print RUN "DR-Recovery completed with ERRORS on $dmonth/$dday/$dyear at $dhour:$dmin:$dsec\n";	
 	email("DR-Recovery:MoveFile.pl completed with ERRORS");
 }else{
- 	print RUN "DR-Recovery completed SUCCESSFULLY on $cmonth/$cday/$cyear at $chour:$cmin:$csec\n";
-	email("DR-Recovery:MoveFile.pl completed with SUCCESSFULLY");
+	##finished without errors, write the last run time to the INI file.
+	$ini->param('Date.lryear',$cyear);
+	$ini->param('Date.lrmonth',$cmonth);
+	$ini->param('Date.lrday',$cday);
+	$ini->param('Date.lrhour',$chour);
+	$ini->param('Date.lrmin',$cmin);
+	$ini->param('Date.lrsec',$csec);
+	$ini->save();	
+ 	print RUN "DR-Recovery completed SUCCESSFULLY on $dmonth/$dday/$dyear at $dhour:$dmin:$dsec\n";
+	#email("DR-Recovery:MoveFile.pl completed with SUCCESSFULLY");
 }
 print RUN "---------------------END SESSION-----------------------------------\n";
 print LAST "--------------END SESSION $cmonth/$cday/$cyear $chour:$cmin:$csec--------------\n";
