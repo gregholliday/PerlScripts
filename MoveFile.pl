@@ -192,12 +192,12 @@ print LAST "-------------START SESSION $cmonth/$cday/$cyear $chour:$cmin:$csec--
 print "Connecting to database\n";
 print LAST "Connecting to database\n";
 if($dbusezz == 1){
- $dbuser = 'zz'.$dbuser;   #put zz in front of user id
- $dbpwd = reverse($dbpwd); #reverse password
- my $first = substr($dbpwd,0,1);
- if(looks_like_number($first)){
+$dbuser = 'zz'.$dbuser;   #put zz in front of user id
+$dbpwd = reverse($dbpwd); #reverse password
+my $first = substr($dbpwd,0,1);
+if(looks_like_number($first)){
 	 $dbpwd = 'z'.$dbpwd; #put z in front of password if the first character is a z
- }
+}
 }
 my $dbh = DBI->connect("dbi:Oracle:$dbname",$dbuser,$dbpwd)
 	or err("DR-Recovery:MoveFiles","Database Error - Cannot connect to database: $DBI::errstr\n",2);
@@ -301,28 +301,28 @@ foreach $file(@files){
 #my ($mday,$wday,$yday,$isdst);
 
 # foreach $file (@files){
-   # next if $file =~ /^\.\.?$/;  # skip . and ..
-   # $newfile = $staging."\\".$file;  #new location
-   # $orgfile = $original."\\".$file; #original location
-   # ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($orgfile) ;
-   # $st = localtime($mtime) ;
+  # next if $file =~ /^\.\.?$/;  # skip . and ..
+  # $newfile = $staging."\\".$file;  #new location
+  # $orgfile = $original."\\".$file; #original location
+  # ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($orgfile) ;
+  # $st = localtime($mtime) ;
 
-   # $day = $st->[3];
-   # $month = $st->[4] + 1;
-   # $year = $st->[5] + 1900;
-   # $sec = $st->[0];
-   # if ($sec < 10){
-   	# $sec = '0'.$sec;
-   # }
-   # $min = $st->[1];
-   # if ($min < 10){
-   	# $min = '0'.$min;
-   # }
-   # $hour = $st->[2];
-   # @fts = ($year,$month,$day,$hour,$min,$sec);
-   # $temp = Delta_DHMS(@fts,@cts); #compare the file modified time to the current time
-   # $temp2 = Delta_DHMS(@fts,@lastrun);
- 
+  # $day = $st->[3];
+  # $month = $st->[4] + 1;
+  # $year = $st->[5] + 1900;
+  # $sec = $st->[0];
+  # if ($sec < 10){
+  	# $sec = '0'.$sec;
+  # }
+  # $min = $st->[1];
+  # if ($min < 10){
+  	# $min = '0'.$min;
+  # }
+  # $hour = $st->[2];
+  # @fts = ($year,$month,$day,$hour,$min,$sec);
+  # $temp = Delta_DHMS(@fts,@cts); #compare the file modified time to the current time
+  # $temp2 = Delta_DHMS(@fts,@lastrun);
+
 	# if ($temp > 0 && $temp2 < 0){
 		# copy($orgfile,$newfile)
 			# or err("DR-Recovery:MoveFiles","Error trying to copy file from $orgfile to $newfile\n",1);
@@ -344,17 +344,17 @@ opendir (STG, $staging) or err("DR-Recovery:MoveFiles","Could not open staging f
 my @zipfiles=readdir(STG);
 closedir(STG);
 foreach $file (@zipfiles){
-    next if $file =~ /^\.\.?$/;  # skip . and ..
-    $orgfile = $staging."\\".$file;
-    $zip = Archive::Zip->new();
-    $zip->addFile($orgfile);
-    $name = basename($orgfile);
-    $name = $ziploc."\\".$cyear.$cmonth.$cday."_".$chour.$cmin."_".$name.".zip";
-    if ($zip->writeToFileNamed($name) != 0){
-        err("DR-Recovery:MoveFiles","Error creating ZIP file $name\n",1);
+   next if $file =~ /^\.\.?$/;  # skip . and ..
+   $orgfile = $staging."\\".$file;
+   $zip = Archive::Zip->new();
+   $zip->addFile($orgfile);
+   $name = basename($orgfile);
+   $name = $ziploc."\\".$cyear.$cmonth.$cday."_".$chour.$cmin."_".$name.".zip";
+   if ($zip->writeToFileNamed($name) != 0){
+       err("DR-Recovery:MoveFiles","Error creating ZIP file $name\n",1);
 		$temp=$hold."\\".$file;
 		move($orgfile,$temp) or err("DR-Recovery:MoveFiles","Error trying to move file from $name to $newfile\n",1);
-    }else{
+   }else{
 		$zipcnt++;
 		unlink($orgfile);
 	}
@@ -503,10 +503,11 @@ sub err{
     if($severity >= 2){
         $sender = new Mail::Sender
             {smtp => $smtp, from => $from} || die "Email Error - 1";
-        $sender->MailMsg({to => $to,
+        $sender->MailFile({to => $to,
                            cc => $cc,
                            subject => $subject,
-                           msg => $message}) || die "Email Error - 2";
+                           msg => $message,
+						   file => $logfile}) || die "Email Error - 2";
         
         die "Ending due to error";
     }
@@ -515,7 +516,7 @@ sub err{
 ###########################Email when done#################################
 sub email{
     my $sender;
-    my @args = $_;
+    my @args = @_;
     #my $err = $args[0];
     my $subject = $args[0];
     my $message;
@@ -530,8 +531,9 @@ sub email{
     #$subject = "DR-Recovery MoveFile.pl Completed Wiith Errors";
     #$message = "One or more errors occurred during the execution of MoveFile.pl.\n".
     #                "Please see attached log file for details.\n";
-    $sender->MailMsg({to => $to,
+    $sender->MailFile({to => $to,
                            cc => $cc,
                            subject => $subject,
-                           msg => $subject});                      
+                           msg => $subject,
+						   file => $logfile});                      
 }						   
