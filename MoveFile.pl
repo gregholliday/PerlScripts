@@ -250,18 +250,19 @@ $ini->save();
 # Get list of files to transfer from DB
 ############################################################################################
 print "Getting list of files from database\n";
-my $lastrun = "$lrday-$lrmonth-$lryear $lrhour:$lrmin)";
+my $lastrun = "$lrday-$lrmonth-$lryear $lrhour:$lrmin";
 my $currentrun = "$cday-$cmonth-$cyear $chour:$cmin";
 
-$sql = "select name, to_char(completion_time, 'DD-MON-YYYY HH24:MI') ".
+$sql = "select name, to_char(completion_time, 'DD-MM-YYYY HH24:MI') ".
 		"from v\$archived_log ".
 		"where UPPER(name) like 'U%' ".
-		"and completion_time between to_date('$lastrun', 'DD-MON-YYYY HH24:MI') ".
-		"and TO_DATE('$currentrun' ,'DD-MON-YYYY HH24:MI')";
+		"and completion_time between to_date('$lastrun', 'DD-MM-YYYY HH24:MI') ".
+		"and TO_DATE('$currentrun' ,'DD-MM-YYYY HH24:MI')";
 
 my $sth = $dbh->prepare($sql)
 	or err("DR-Recovery:MoveFiles","Database Error - Can not get files from DB: $DBI::errstr\n",2); ##prepare the SQL
-$sth->execute(); ##execute the SQL
+$sth->execute()
+	or err("DR-Recovery:MoveFiles","Database Error - Can not get files from DB: $DBI::errstr\n",2); ##execute the SQL
 
 my $array_ref = $sth->fetchall_arrayref(); ##fetch rows into array
 my @files;
@@ -281,13 +282,13 @@ my $temp2;
 $filecnt = 0; #make sure the file count is reset
 
 print "Moving files to staging area\n";
-print LAST "Moving files to staginf area\n";
+print LAST "Moving files to staging area\n";
 my ($base,$ext,$dir);
 
 foreach $file(@files){
-	($base,$ext,$dir) = fileparse($file);
+	($base,$dir,$ext) = fileparse($file);
 	$newfile = $staging."\\".$base.$ext;
-	print "Moving $file to $newfile\n";
+	#print "Moving $file to $newfile\n";
 	copy($file,$newfile)
 		 or err("DR-Recovery:MoveFiles","Error trying to copy file from $file to $newfile\n",1);
 	print LAST "Copied $orgfile TO $newfile\n";
@@ -353,7 +354,7 @@ foreach $file (@zipfiles){
    if ($zip->writeToFileNamed($name) != 0){
        err("DR-Recovery:MoveFiles","Error creating ZIP file $name\n",1);
 		$temp=$hold."\\".$file;
-		move($orgfile,$temp) or err("DR-Recovery:MoveFiles","Error trying to move file from $name to $newfile\n",1);
+		copy($orgfile,$temp) or err("DR-Recovery:MoveFiles","Error trying to move file from $name to $newfile\n",1);
    }else{
 		$zipcnt++;
 		unlink($orgfile);
